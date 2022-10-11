@@ -5,18 +5,13 @@
 			<label>Cat</label>
 			<input type="text" v-model="cat.brand" />
 			<label>About</label>
-			<p>
-				<vue-ckeditor v-model.lazy="cat.about" :config="config" @blur="onBlur($event)"
-					@focus="onFocus($event)" />
-			</p>
-
 			<label>category</label>
 			<input type="text" v-model="cat.category" />
 			<label>Price</label>
 			<input type="text" v-model="cat.price" />
 			<p>
 				<button type="submit" class="btn btn-success createuser">update Cat</button>
-				<button v-on:click="navigateTo('/cats' )" class="btn btn-warning createuser">กลับ</button>
+				<button v-on:click="navigateTo('/cats')" class="btn btn-warning createuser">กลับ</button>
 			</p>
 		</form>
 	</div>
@@ -25,7 +20,6 @@
 import 'bootstrap/dist/css/bootstrap.min.css'
 import CatService from "@/services/CatService";
 import VueCkeditor from "vue-ckeditor2";
-import UploadService from "@/services/UploadService";
 export default {
 	data() {
 		return {
@@ -147,30 +141,126 @@ export default {
 	},
 	methods: {
 		async editCat() {
-			try {
-				await CatService.put(this.cat);
-				this.$router.push({
-					name: "cats",
-				});
-			} catch (err) {
-				console.log(err);
-			}
-		},
-	},
-	async created() {
-		try {
-			let catId = this.$route.params.catId;
-			this.catId = (await CatService.show(catId)).data;
+      try {
+        await CatService.put(this.cat);
+        this.$router.push({
+          name: "cats"
+        });
+      } catch (err) {
+        console.log(err);
+      }
+    },
+    navigateTo(route) {
+      console.log(route);
+      this.$router.push(route);
+    },
+    wait(ms) {
+      return x => {
+        return new Promise(resolve => setTimeout(() => resolve(x), ms));
+      };
+    },
+    reset() {
+    //   // reset form to initial state
+    //   this.currentStatus = STATUS_INITIAL;
+    //   // this.uploadedFiles = []
+    //   this.uploadError = null;
+    //   this.uploadedFileNames = [];
+    },
+    async save(formData) {
+      // upload data to the server
+      try {
+        // this.currentStatus = STATUS_SAVING;
+        // await UploadService.upload(formData);
+        // this.currentStatus = STATUS_SUCCESS;
 
+        // update image uploaded display
+        let pictureJSON = [];
+        this.uploadedFileNames.forEach(uploadFilename => {
+          let found = false;
+          for (let i = 0; i < this.pictures.length; i++) {
+            if (this.pictures[i].name == uploadFilename) {
+              found = true;
+              break;
+            }
+          }
+          if (!found) {
+            this.pictureIndex++;
+            let pictureJSON = {
+              id: this.pictureIndex,
+              name: uploadFilename
+            };
+            this.pictures.push(pictureJSON);
+          }
+        });
 
-
-		} catch (error) {
-			console.log(error);
-		}
-	},
-	components: {
-		VueCkeditor
-	}
+        this.clearUploadResult();
+      } catch (error) {
+        console.log(error);
+        this.currentStatus = STATUS_FAILED;
+      }
+    },
+    filesChange(fieldName, fileList) {
+      // handle file changes
+      const formData = new FormData();
+      if (!fileList.length) return;
+      // append the files to FormData
+      Array.from(Array(fileList.length).keys()).map(x => {
+        formData.append(fieldName, fileList[x], fileList[x].name);
+        this.uploadedFileNames.push(fileList[x].name);
+      });
+      // save it
+      this.save(formData);
+    },
+    clearUploadResult: function() {
+      setTimeout(() => this.reset(), 5000);
+    },
+    async delFile(material) {
+      let result = confirm("Want to delete?");
+      if (result) {
+        let dataJSON = {
+          filename: material.name
+        };
+        await UploadService.delete(dataJSON);
+        for (var i = 0; i < this.pictures.length; i++) {
+          if (this.pictures[i].id === material.id) {
+            this.pictures.splice(i, 1);
+            this.materialIndex--;
+            break;
+          }
+        }
+      }
+    },
+    useThumbnail(filename) {
+      console.log(filename);
+      this.cat.thumbnail = filename;
+    }
+  },
+  async created() {
+    this.reset();
+    try {
+      let catId = this.$route.params.catId;
+      this.cat = (await CatService.show(catId)).data;
+    } catch (error) {
+      console.log(error);
+    }
+  },
+  computed: {
+    isInitial() {
+      return this.currentStatus === STATUS_INITIAL;
+    },
+    isSaving() {
+      return this.currentStatus === STATUS_SAVING;
+    },
+    isSuccess() {
+      return this.currentStatus === STATUS_SUCCESS;
+    },
+    isFailed() {
+      return this.currentStatus === STATUS_FAILED;
+    }
+  },
+  components: {
+    VueCkeditor
+  }
 };
 </script>
 <style scoped>
